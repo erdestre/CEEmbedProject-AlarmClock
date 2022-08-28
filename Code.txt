@@ -1,0 +1,293 @@
+#include <LiquidCrystal.h>
+
+LiquidCrystal lcd(2,3,4,5,6,7);
+
+int ss,mm,hh;
+bool isAP,isAM;
+int k=0;
+
+int seconds;
+int prevTime;
+bool animation = false;
+
+int HeatMode = 0;
+
+int AlarmHours = 0;
+int AlarmMins = 0;
+bool isAlarmActive = false;
+bool isAlarmRinging = false;
+
+int b1 = 0;
+int b2 = 0;
+int b3 = 0;
+int b4 = 0;
+
+//Settings
+int settingsMode = 0;//Clock, Alarm, Types
+int whichClockTime;//hh,mm,ss
+int whichAlarmTime;//AlarmHours, AlarmMins
+
+void setup()
+{
+	Serial.begin(9600);
+	lcd.begin(16,2);
+  
+  	ss = 45;
+  	mm = 59;
+  	hh = 11;
+  	isAP = true;
+  	isAM = true;
+  
+  	pinMode(8, INPUT);  //B1
+	pinMode(9, INPUT);  //B2 
+	pinMode(10, INPUT); //B3
+	pinMode(11, INPUT); //B4
+
+	pinMode(12, OUTPUT); //For alarm tone
+  
+  	
+}
+void loop(){
+  b1 = digitalRead(8);
+  b2 = digitalRead(9);
+  b3 = digitalRead(10);
+  b4 = digitalRead(11);
+  
+  seconds = (millis() / 1000);
+  
+  if(seconds > prevTime){
+  	prevTime = seconds;
+    Buttons();
+    Clock();
+  	Alarm();
+  	Temperature();
+    Animations();
+    
+    Serial.print(settingsMode);
+  }
+}
+
+
+void Animations(){
+  animation = !animation;
+  if(animation){
+    if(settingsMode == 1){
+    if(whichClockTime == 0){
+    	lcd.setCursor(0,0);
+    	lcd.print("  ");
+    }
+    else if(whichClockTime == 1){
+    	lcd.setCursor(3,0);
+    	lcd.print("  ");
+    }
+    else if(whichClockTime == 2){
+    	lcd.setCursor(6,0);
+    	lcd.print("  ");
+    }
+  }
+  else if (settingsMode == 2){
+    if(whichAlarmTime == 0){
+  		lcd.setCursor(3,1);
+    	lcd.print("  ");
+  	}
+    else if(whichAlarmTime == 1){
+  		lcd.setCursor(6,1);
+    	lcd.print("  ");
+  	}
+}
+  }
+}
+
+void Buttons(){
+	if(b1 == LOW){
+      settingsMode++;
+      if(settingsMode >= 4){
+      settingsMode = 0;
+      }
+	}
+  if(settingsMode == 0){
+    if(b2 == LOW){
+    	isAlarmActive = !isAlarmActive;
+    }
+    if(b3 == LOW){
+      if(isAP){
+        if(!isAM){
+        	hh = hh+12;
+        }
+        isAP = false;
+      }
+      else {
+        if(hh >= 12){
+        	hh = hh-12;
+        }
+        isAP = true;
+      }
+      
+    }
+    if(b4 == LOW){
+    	HeatMode++;
+      if(HeatMode == 2){
+      	HeatMode = 0;
+      }
+    }
+  }
+  else if(settingsMode == 1){
+    if(b2 == LOW){
+    	whichClockTime++;
+      	if(whichClockTime == 3){
+      	whichClockTime = 0;
+      }
+    }
+    if(b3 == LOW){
+      switch(whichClockTime){
+      	case 0: hh++; break;
+        case 1: mm++; break;
+        case 2: ss++; break;
+      }
+    }
+    if(b4 == LOW){
+    	switch(whichClockTime){
+      	case 0: hh--; break;
+        case 1: mm--; break;
+        case 2: ss--; break;
+      }
+    }
+  }
+  else if(settingsMode == 2){
+    if(b2 == LOW){
+    	whichAlarmTime++;
+      	isAlarmActive = true;
+      	if(whichAlarmTime == 2){
+      		whichAlarmTime = 0;
+      	}
+    }
+    if(b3 == LOW){
+      isAlarmActive = true;
+    	switch (whichAlarmTime){
+    	case 0: AlarmHours++; break;
+    	case 1: AlarmMins++; break;
+    	}
+    }
+    if(b4 == LOW){
+      isAlarmActive = true;
+    	switch (whichAlarmTime){
+    	case 0: AlarmHours--; break;
+    	case 1: AlarmMins--; break;
+    }
+  }
+  }
+  }
+void Clock()
+{
+  ss++;
+  
+  if(ss >= 60){
+  	mm = mm+1;
+  	ss = 0;
+    if(mm>=60){
+    	hh=hh+1;
+      	mm = 0;
+    }
+  }
+  if(isAP){
+    if(hh>=12){
+      	isAM = !isAM;
+    	hh = hh-12;
+    }
+  }
+  else {
+    if(hh >= 24){
+      isAM = true;
+    	hh=0;
+    }
+  }
+  printTime();
+}
+
+void Alarm()
+{
+  lcd.setCursor(0, 1);
+  if(isAlarmActive){
+    if(isAP && hh >= 12){
+      if(AlarmHours-12 == hh && AlarmMins == mm){
+      	tone(12, 1000);
+        isAlarmRinging = true;
+      }
+    }
+  	else if (AlarmHours == hh && AlarmMins == mm)
+	{
+		tone(12, 1000);
+        isAlarmRinging = true;
+	}
+	else if (settingsMode == 0 && b4 == LOW)
+	{
+		isAlarmActive = false;
+      	isAlarmRinging = false;
+	}
+    if(isAlarmRinging){
+    lcd.print("ALARM!!!");
+    }
+    else{
+	lcd.print("AL:");
+    setNumber(AlarmHours);
+    lcd.print(":");
+    setNumber(AlarmMins);
+    }
+    
+  }
+  else{
+	lcd.print("AL OFF  ");
+  }
+  
+}
+
+void Temperature()
+{
+	int tempRead = analogRead(A0);
+	float volt = tempRead * 5.0;
+	volt = 1024.0 / volt;
+	float tempC = (volt - 0.5) * 100;
+	float tempF = (tempC * 9.0 / 5.0) + 32.0;
+
+	if (HeatMode == 1)
+	{
+		lcd.setCursor(9, 1);
+        lcd.print(" ");
+		lcd.print(tempC);
+		lcd.print("C");
+	}
+	else
+	{
+		lcd.setCursor(9, 1);
+		lcd.print(tempF);
+		lcd.print("F");
+	}
+}
+
+
+void setNumber(int x) {
+  if(x<=9){
+  	lcd.print("0");
+  }
+  lcd.print(x);
+}
+
+void printTime(){
+	lcd.setCursor(0,0);
+  	setNumber(hh);lcd.print(":");
+  	setNumber(mm);lcd.print(":");
+  	setNumber(ss);
+  	if(isAP){
+  		if(isAM){
+  		lcd.print("AM");
+  		}
+  		else{
+  			lcd.print("PM");
+  		}
+  	}
+  	else {
+      	lcd.print("  ");
+      }
+}
+
+  
